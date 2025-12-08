@@ -101,7 +101,8 @@ const BoxMenu: React.FC = () => {
   // Filter menu items based on user condition
   const getMenuItems = (): MenuItem[] => {
     if (!connectedUser) return [];
-    return allMenuItems;
+    // Filter out CNAM Orders (disabled)
+    return allMenuItems.filter(item => item.name !== "CNNAM Orders");
   };
 
   const menuItems = getMenuItems();
