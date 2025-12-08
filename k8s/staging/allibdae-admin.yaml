@@ -1,0 +1,14 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: allibdae-admin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: allibdae-admin
+  template:
+    spec:
+      containers:
+        - name: allibdae-admin
+          image: ghcr.io/mohamedsalem66/allibdae-admin:0.2-SNAPSHOT
