@@ -46,6 +46,7 @@ const allMenuItems: MenuItem[] = [
       </div>
     )
   },
+
   {
     name: "Essafwa Orders",
     icon: <BoxCubeIcon />,
@@ -72,7 +73,15 @@ const allMenuItems: MenuItem[] = [
     description: "Optical products",
     color: "bg-gradient-to-br from-amber-50 to-blue-light-50 dark:from-amber-900/20 dark:to-blue-light-900/20",
     backgroundIcon: <EyeIcon />
-  }
+  },
+  {
+    name: "Extern Orders Draft",
+    icon: <PaperPlaneIcon />,
+    path: "/draft_external-order",
+    logo: "/images/logo/draft.png",
+    description: "External draft order management",
+    color: "bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/20 dark:to-gray-900/20"
+  },
 ];
 
 const BoxMenu: React.FC = () => {

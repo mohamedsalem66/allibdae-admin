@@ -199,6 +199,8 @@ const resources = {
             // BoxMenu Keys
             "Extern Orders": "Extern Orders",
             "External order management": "External order management",
+            "Extern Orders Draft": "Extern Orders Draft",
+            "External draft order management": "External draft order management",
             "Essafwa Orders": "Allibdae Orders",
             "Essafwa order management": "Allibdae order management",
             "CNNAM Orders": "CNAM Orders",
@@ -244,7 +246,10 @@ const resources = {
             "Discount": "Discount",
             "Discount not applied": "Discount not applied",
             "Yes": "Yes",
-            "Not specified": "Not specified"
+            "Not specified": "Not specified",
+            "Draft External Order": "Draft External Order",
+            "All orders created here are draft orders and not sended": "All orders created here are draft orders and not sended",
+            "DRAFT": "DRAFT"
 
 
         },
@@ -470,6 +475,8 @@ const resources = {
             // BoxMenu Keys
             "Extern Orders": "Commandes Externes",
             "External order management": "Gestion des commandes externes",
+            "Extern Orders Draft": "Commandes Externes Brouillon",
+            "External draft order management": "Gestion des commandes externes brouillon",
             "Essafwa Orders": "Commandes Allibdae",
             "Essafwa order management": "Gestion des commandes Allibdae",
             "CNNAM Orders": "Commandes CNAM",
@@ -517,7 +524,10 @@ const resources = {
             "Discount": "Remise",
             "Discount not applied": "Remise non appliquée",
             "Yes": "Oui",
-            "Not specified": "Non spécifié"
+            "Not specified": "Non spécifié",
+            "Draft External Order": "Commande Externe Brouillon",
+            "All orders created here are draft orders and not sended": "Toutes les commandes créées ici sont des brouillons et ne sont pas envoyées",
+            "DRAFT": "BROUILLON"
 
         },
     },
@@ -740,6 +750,8 @@ const resources = {
             // BoxMenu Keys
             "Extern Orders": "الطلبات الخارجية",
             "External order management": "إدارة الطلبات الخارجية",
+            "Extern Orders Draft": "الطلبات الخارجية مسودة",
+            "External draft order management": "إدارة الطلبات الخارجية المسودة",
             "Essafwa Orders": "طلبات الإبداع",
             "Essafwa order management": "إدارة طلبات الإبداع",
             "CNNAM Orders": "طلبات الصندوق الوطني",
@@ -787,7 +799,10 @@ const resources = {
             "Discount": "الخصم",
             "Discount not applied": "الخصم غير مطبق",
             "Yes": "نعم",
-            "Not specified": "غير محدد"
+            "Not specified": "غير محدد",
+            "Draft External Order": "طلب خارجي مسودة",
+            "All orders created here are draft orders and not sended": "جميع الطلبات التي تم إنشاؤها هنا هي طلبات مسودة ولا يتم إرسالها",
+            "DRAFT": "مسودة"
 
 
 

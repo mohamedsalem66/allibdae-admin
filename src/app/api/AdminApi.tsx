@@ -33,6 +33,9 @@ export const AdminApi = {
     getInvoice: (orderId: number) => {
         return apiClient.get(`${endPoint}/imprime/${orderId}`);
     },
+    getInvoiceDraft: (orderId: number) => {
+        return apiClient.get(`${endPoint}/imprime-draft/${orderId}`);
+    },
     uploadDhlTracking: (formData: FormData) => {
         return apiClient.post(`${endPoint}/tracking/dhl/upload`, formData, {
             headers: {

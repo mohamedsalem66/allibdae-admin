@@ -6,7 +6,6 @@ import Select from "@/components/ui/select/Select";
 import Label from "@/components/form/Label";
 import {useTranslation} from "react-i18next";
 import {AnimatePresence, motion} from "framer-motion";
-import {GlassesApi} from "@/app/api/GlassesApi";
 import {CategoryApi} from "@/app/api/categoryApi";
 import {OpticApi} from "@/app/api/OpticApi";
 import Switch from "@/components/form/switch/Switch";
@@ -17,6 +16,7 @@ import {EyeIcon, UserIcon} from "@/icons";
 import CategorySelect from "@/components/CategorySelect";
 import { HiOutlinePrinter } from "react-icons/hi";
 import BackToMenu from "@/components/common/BackToMenu";
+import {DraftGlassesApi} from "@/app/api/DraftGlassesApi";
 
 
 
@@ -230,7 +230,7 @@ export default function GlassesOrders() {
         try {
             setLoadingStates(prev => ({ ...prev, [orderId]: true }));
 
-            const response = await AdminApi.getInvoice(orderId);
+            const response = await AdminApi.getInvoiceDraft(orderId);
 
             const pdfData = response.data;
 
@@ -281,7 +281,7 @@ export default function GlassesOrders() {
     const fetchOrders = async () => {
         setLoading(true);
         try {
-            const response = await GlassesApi.getAll();
+            const response = await DraftGlassesApi.getAll();
             const allOrders = response?.data || [];
             const sortedOrders = allOrders.sort((a: GlassesOrder, b: GlassesOrder) => b.id - a.id);
             setOrders(sortedOrders);
@@ -388,8 +388,6 @@ export default function GlassesOrders() {
                 Number(totalPrice)
             );
             closeValidateModal();
-
-            await AdminApi.generateOpticInvoice(currentOrderId);
         } catch (error) {
             setOrders((prev) =>
                 prev.map((order) =>
@@ -466,13 +464,12 @@ export default function GlassesOrders() {
                 };
             }
 
-            const response = await GlassesApi.createOrder(payload);
+            const response = await DraftGlassesApi.createOrder(payload);
             await fetchOrders();
             await fetchCategories();
             closeCreateModal();
             setCreatingOrder(false);
             setIsSuccessModalOpen(true);
-            await GlassesApi.sendInvoice(response?.data?.id, selectedOpticId ? true : false);
             resetForm();
         } catch (error) {
             console.error("Failed to create order:", error);
@@ -511,7 +508,6 @@ export default function GlassesOrders() {
         );
 
         try {
-            await GlassesApi.markOrdersAsPaidByOptic(opticId, selectedOrders);
             setSelectedOrders([]);
         } catch (error) {
             setOrders(originalOrders);
@@ -674,31 +670,12 @@ export default function GlassesOrders() {
     };
 
     const getStatusColor = (status: string) => {
-        switch (status) {
-            case "PENDING":
-                return "bg-red-100/40 dark:bg-red-900/50";
-            case "VALIDATED":
-                return "bg-green-100/40 dark:bg-green-900/50";
-            case "TRANSIT":
-                return "bg-yellow-100 text-red-800 dark:bg-yellow-900 dark:text-red-200";
-            case "READY_TO_PICKUP":
-                return "bg-blue-light-100 text-blue-light-800 dark:bg-blue-light-900 dark:text-blue-light-200";
-            case "DELIVERED":
-                return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200";
-            case "PAID":
-                return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-            case "PARTIAL_PAID":
-                return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-            case "UNPAID":
-                return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-            default:
-                return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200";
-        }
+        // All statuses return gray colors for draft style
+        return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200";
     };
 
     const filteredOrders = orders.filter((order) => {
-        if (filter !== "ALL" && order.status !== filter) return false;
-        if (paymentFilter !== "ALL" && order.paymentStatus !== paymentFilter) return false;
+        // Removed status and payment filters for draft orders
         if (opticFilter !== null) {
             if (opticFilter === "null") {
                 if (order.optic !== null) return false;
@@ -782,15 +759,34 @@ export default function GlassesOrders() {
         <div className="md:p-1">
             <BackToMenu />
             <div className="mb-6 space-y-4">
+                <div className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-4 mb-4">
+                    <div className="flex items-center justify-center gap-3">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-6 w-6 text-gray-600 dark:text-gray-400 flex-shrink-0"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                        >
+                            <path
+                                fillRule="evenodd"
+                                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                clipRule="evenodd"
+                            />
+                        </svg>
+                        <p className="text-lg font-bold text-center text-gray-700 dark:text-gray-300">
+                            {t("All orders created here are draft orders and not sended")}
+                        </p>
+                    </div>
+                </div>
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div className="flex items-center gap-4">
                         <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-                            {t("Glasses Orders")} ({filteredOrders.length})
+                            {t("Draft External Order")} ({filteredOrders.length})
                         </h1>
-                        <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 px-3 py-1.5 rounded-lg">
+                        <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600">
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                className="h-5 w-5 text-red-600 dark:text-red-400"
+                                className="h-5 w-5 text-gray-600 dark:text-gray-400"
                                 viewBox="0 0 20 20"
                                 fill="currentColor"
                             >
@@ -800,35 +796,13 @@ export default function GlassesOrders() {
                                     clipRule="evenodd"
                                 />
                             </svg>
-                            <span className="text-sm font-medium text-red-600 dark:text-red-400">
+                            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
                                 -{calculateTotalRemaining().toFixed(0)} MRU
                             </span>
                         </div>
                     </div>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3">
-                    <Select
-                        value={filter}
-                        onChange={(e) => setFilter(e.target.value as "ALL" | "PENDING" | "VALIDATED" | "TRANSIT" | "READY_TO_PICKUP" | "DELIVERED")}
-                        className="min-w-[180px]"
-                    >
-                        <option value="ALL">{t("All Statuses")}</option>
-                        <option value="PENDING">{t("Pending")}</option>
-                        <option value="VALIDATED">{t("Validated")}</option>
-                        <option value="TRANSIT">{t("TRANSIT")}</option>
-                        <option value="READY_TO_PICKUP">{t("READY_TO_PICKUP")}</option>
-                        <option value="DELIVERED">{t("Delivered")}</option>
-                    </Select>
-                    <Select
-                        value={paymentFilter}
-                        onChange={(e) => setPaymentFilter(e.target.value as "ALL" | "PAID" | "PARTIAL_PAID" | "UNPAID")}
-                        className="min-w-[180px]"
-                    >
-                        <option value="ALL">{t("All Payments")}</option>
-                        <option value="PAID">{t("Paid")}</option>
-                        <option value="PARTIAL_PAID">{t("Partial Paid")}</option>
-                        <option value="UNPAID">{t("Unpaid")}</option>
-                    </Select>
 
                     <div className="flex flex-col sm:flex-row gap-2">
                         <Input
@@ -895,9 +869,9 @@ export default function GlassesOrders() {
                                     </div>
                                     <div className="flex items-center gap-2">
             <span
-                className={`px-2 py-1 rounded-full text-s font-medium ${getStatusColor(order.paymentStatus)}`}
+                className={`px-2 py-1 rounded-full text-s font-medium ${getStatusColor("DRAFT")}`}
             >
-              {t(order.paymentStatus)}
+              {t("DRAFT")}
             </span>
                                     </div>
                                 </div>
@@ -924,11 +898,11 @@ export default function GlassesOrders() {
                                     </div>
                                     <div>
                                         <p className="text-gray-800 dark:text-gray-400">{t("Paid")}:</p>
-                                        <p className="text-green-600 dark:text-green-400">{order?.paidAmount || 0} MRU</p>
+                                        <p className="text-gray-600 dark:text-gray-400">{order?.paidAmount || 0} MRU</p>
                                     </div>
                                     <div>
                                         <p className="text-gray-800 dark:text-gray-400">{t("Remaining")}:</p>
-                                        <p className="text-red-600 dark:text-red-400">{order?.remainingAmount} MRU</p>
+                                        <p className="text-gray-600 dark:text-gray-400">{order?.remainingAmount} MRU</p>
                                     </div>
                                 </div>
 
@@ -971,59 +945,7 @@ export default function GlassesOrders() {
 
                                 <div
                                     className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600 flex justify-between items-center">
-                                    {order.status === "PENDING" ? (
-                                        <Button
-                                            onClick={() => openValidateModal(order.id)}
-                                            disabled={updatingStatus === order.id}
-                                            size="sm"
-                                            className={updatingStatus === order.id ? "bg-gray-400 cursor-not-allowed" : "bg-green-500 hover:bg-green-600"}
-                                        >
-                                            {updatingStatus === order.id ? (
-                                                <div
-                                                    className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"/>
-                                            ) : (
-                                                t("Validate")
-                                            )}
-                                        </Button>
-                                    ) : order.status === "DELIVERED" ? (
-                                        <span
-                                            className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-medium">
-            {t("Delivered")}
-        </span>
-                                    ) : (
-                                        <>
-                                            {order.status === "READY_TO_PICKUP" && (
-                                                <Button
-                                                    onClick={() => {
-                                                        setCurrentOrderId(order.id);
-                                                        setDeliverPaidAll(true);
-                                                        setDeliverPaidAmount("");
-                                                        setDeliverError("");
-                                                        setIsDeliverModalOpen(true);
-                                                    }}
-                                                    size="sm"
-                                                >
-                                                    {t("Deliver")}
-                                                </Button>
-                                            )}
-
-                                            {order.status !== "PENDING" && order.paymentStatus !== "PAID" && (
-                                                <Button
-                                                    onClick={() => {
-                                                        setCurrentOrderId(order.id);
-                                                        setPayPaidAll(true);
-                                                        setPayPaidAmount("");
-                                                        setPayError("");
-                                                        setIsPayModalOpen(true);
-                                                    }}
-                                                    size="sm"
-                                                    className="bg-bleu-500 hover:bg-bleu-600"
-                                                >
-                                                    {t("Pay Order")}
-                                                </Button>
-                                            )}
-                                        </>
-                                    )}
+                                    {/* Pay and Deliver buttons removed for draft orders */}
                                 </div>
                             </div>
                         </div>
@@ -1048,9 +970,6 @@ export default function GlassesOrders() {
                             </th>
                             <th className={`px-6 py-3 ${isRTL ? 'text-right' : 'text-left'} ${isRTL ? 'text-m' : 'text-xs'} font-medium text-gray-800 dark:text-gray-400 uppercase tracking-wider`}>
                                 {t("Remaining")}
-                            </th>
-                            <th className={`px-6 py-3 ${isRTL ? 'text-right' : 'text-left'} ${isRTL ? 'text-m' : 'text-xs'} font-medium text-gray-800 dark:text-gray-400 uppercase tracking-wider`}>
-                                {t("Payment Status")}
                             </th>
                             <th className={`px-6 py-3 ${isRTL ? 'text-right' : 'text-left'} ${isRTL ? 'text-m' : 'text-xs'} font-medium text-gray-800 dark:text-gray-400 uppercase tracking-wider`}>
                                 {t("Date")}
@@ -1079,112 +998,63 @@ export default function GlassesOrders() {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-400">
                                         {order.totalPrice != null ? `${order.totalPrice} MRU` : '---'}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 dark:text-green-400">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                                         {order.paidAmount != null ? `${order.paidAmount} MRU` : '---'}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 dark:text-red-400">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                                         {order.remainingAmount != null ? `${order.remainingAmount} MRU` : '---'}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                            <span
-                                                className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.paymentStatus)}`}>
-                                                {t(order.paymentStatus)}
-                                            </span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                         {formatDate(order.createdAt)}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        {order.status === "PENDING" ? (
-                                            <Button
-                                                onClick={() => openValidateModal(order.id)}
-                                                disabled={updatingStatus === order.id}
-                                                size="sm"
-                                                className={
-                                                    updatingStatus === order.id
-                                                        ? "bg-gray-400 cursor-not-allowed"
-                                                        : "bg-green-500 hover:bg-green-600"
-                                                }
-                                            >
-                                                {updatingStatus === order.id ? (
-                                                    <div
-                                                        className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"/>
-                                                ) : (
-                                                    t("Validate")
-                                                )}
-                                            </Button>
-                                        ) : order.status === "DELIVERED" ? (
-                                            <span
-                                                className="px-2 py-1 rounded-full bg-green-100 text-green-800 text-xs font-medium">
-      {t("Delivered")}
-    </span>
-                                        ) : (
-                                            <div className="flex items-center">
-                                                <Button
-                                                    onClick={() => {
-                                                        setCurrentOrderId(order.id);
-                                                        setDeliverPaidAll(true);
-                                                        setDeliverPaidAmount("");
-                                                        setDeliverError("");
-                                                        setIsDeliverModalOpen(true);
-                                                    }}
-                                                    size="sm"
-                                                    className="bg-[#961767] hover:bg-[#7a1255] text-white"
-                                                >
-                                                    {t("Deliver")}
-                                                </Button>
-
-                                                {order.status !== "PENDING" && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            downloadInvoice(order.id!);
-                                                        }}
-                                                        title="Télécharger la facture"
-                                                        disabled={loadingStates[order.id!]}
-                                                        className={`text-gray-600 hover:text-[#961767] transition duration-150 ${isRTL ? "mr-6" : "ml-6"}`}
+                                        {/* Pay and Deliver buttons removed for draft orders */}
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                downloadInvoice(order.id!);
+                                            }}
+                                            title="Télécharger la facture"
+                                            disabled={loadingStates[order.id!]}
+                                            className={`text-gray-600 hover:text-gray-800 dark:hover:text-gray-300 transition duration-150 ${isRTL ? "mr-6" : "ml-6"}`}
+                                        >
+                                            {loadingStates[order.id!] ? (
+                                                <div className="relative w-8 h-8">
+                                                    <svg
+                                                        className="animate-spin h-full w-full text-gray-600 dark:text-gray-400"
+                                                        viewBox="0 0 24 24"
                                                     >
-                                                        {loadingStates[order.id!] ? (
-                                                            <div className="relative w-8 h-8">
-                                                                <svg
-                                                                    className="animate-spin h-full w-full text-[#961767]"
-                                                                    viewBox="0 0 24 24"
-                                                                >
-                                                                    <circle
-                                                                        className="opacity-15"
-                                                                        cx="12"
-                                                                        cy="12"
-                                                                        r="10"
-                                                                        stroke="currentColor"
-                                                                        strokeWidth="4"
-                                                                        fill="none"
-                                                                    />
-                                                                    <path
-                                                                        className="opacity-75"
-                                                                        fill="none"
-                                                                        stroke="currentColor"
-                                                                        strokeWidth="4"
-                                                                        strokeLinecap="round"
-                                                                        strokeDasharray="80"
-                                                                        strokeDashoffset="60"
-                                                                        d="M12 2a10 10 0 0 1 10 10"
-                                                                    />
-                                                                </svg>
-                                                                <div
-                                                                    className="absolute inset-0 flex items-center justify-center">
-                                                                    <div
-                                                                        className="w-1 h-1 bg-[#961767] rounded-full"></div>
-                                                                </div>
-                                                            </div>
-                                                        ) : (
-                                                            <HiOutlinePrinter
-                                                                className="w-8 h-8 transition-transform hover:scale-110 hover:text-[#961767]"/>
-                                                        )}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        )}
-
+                                                        <circle
+                                                            className="opacity-15"
+                                                            cx="12"
+                                                            cy="12"
+                                                            r="10"
+                                                            stroke="currentColor"
+                                                            strokeWidth="4"
+                                                            fill="none"
+                                                        />
+                                                        <path
+                                                            className="opacity-75"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            strokeWidth="4"
+                                                            strokeLinecap="round"
+                                                            strokeDasharray="80"
+                                                            strokeDashoffset="60"
+                                                            d="M12 2a10 10 0 0 1 10 10"
+                                                        />
+                                                    </svg>
+                                                    <div
+                                                        className="absolute inset-0 flex items-center justify-center">
+                                                        <div
+                                                            className="w-1 h-1 bg-gray-600 dark:bg-gray-400 rounded-full"></div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <HiOutlinePrinter
+                                                    className="w-8 h-8 transition-transform hover:scale-110 hover:text-gray-800 dark:hover:text-gray-300"/>
+                                            )}
+                                        </button>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <svg
@@ -1202,7 +1072,7 @@ export default function GlassesOrders() {
                                 </tr>
                                 {expandedRow === order.id && (
                                     <tr className="bg-gray-50 dark:bg-gray-700">
-                                        <td colSpan={10} className="px-6 py-4">
+                                        <td colSpan={8} className="px-6 py-4">
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div>
                                                     <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">{t("Details")}</h4>
@@ -1277,24 +1147,7 @@ export default function GlassesOrders() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            {order.paymentStatus !== "PAID" && (
-                                                <div className="mt-4 flex justify-end">
-                                                    <Button
-                                                        onClick={() => {
-                                                            setCurrentOrderId(order.id);
-                                                            setPayPaidAll(true);
-                                                            setPayPaidAmount("");
-                                                            setPayError("");
-                                                            setIsPayModalOpen(true);
-                                                        }}
-                                                        size="sm"
-                                                        className="bg-green-500 hover:bg-green-600"
-                                                    >
-                                                        {t("Pay Order")}
-                                                    </Button>
-                                                </div>
-                                            )}
-
+                                            {/* Pay Order button removed for draft orders */}
                                         </td>
                                     </tr>
                                 )}
@@ -1302,285 +1155,6 @@ export default function GlassesOrders() {
                         ))}
                         </tbody>
                     </table>
-                </div>
-            )}
-            {isPayModalOpen && (
-                <div className="fixed inset-0 z-100 overflow-y-auto">
-                    <motion.div
-                        initial="hidden"
-                        animate="visible"
-                        exit="exit"
-                        variants={overlayVariants}
-                        className="fixed inset-0 bg-black"
-                        onClick={() => setIsPayModalOpen(false)}
-                    />
-                    <div className="fixed inset-0 flex items-center justify-center p-4">
-                        <motion.div
-                            initial="hidden"
-                            animate="visible"
-                            exit="exit"
-                            variants={modalVariants}
-                            className="relative bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-xl"
-                        >
-                            <h3 className="text-lg font-medium mb-4">{t("Pay Order")}</h3>
-
-                            <p className="mb-2">
-                                {t("Remaining Amount")}:{" "}
-                                <span className="font-bold text-red-600">
-            {orders.find(o => o.id === currentOrderId)?.remainingAmount} MRU
-          </span>
-                            </p>
-
-                            <div className="space-y-2 mb-4">
-                                <label className="flex items-center space-x-2">
-                                    <input
-                                        type="radio"
-                                        checked={payPaidAll}
-                                        onChange={() => {
-                                            setPayPaidAll(true);
-                                            setPayPaidAmount("");
-                                            setPayError("");
-                                        }}
-                                    />
-                                    <span>{t("Paid All")}</span>
-                                </label>
-                                <label className="flex items-center space-x-2">
-                                    <input
-                                        type="radio"
-                                        checked={!payPaidAll}
-                                        onChange={() => {
-                                            setPayPaidAll(false);
-                                            setPayPaidAmount("");
-                                        }}
-                                    />
-                                    <span>{t("Paid Partial")}</span>
-                                </label>
-                            </div>
-
-                            {!payPaidAll && (
-                                <div className="mb-4">
-                                    <input
-                                        className="w-full border border-gray-300 rounded p-2"
-                                        placeholder={t("Enter partial paid amount")}
-                                        value={payPaidAmount}
-                                        onChange={(e) => setPayPaidAmount(e.target.value)}
-                                    />
-                                    {payError && (
-                                        <p className="text-sm text-red-600 mt-1">{payError}</p>
-                                    )}
-                                </div>
-                            )}
-
-                            <div className="flex justify-end space-x-3">
-                                <Button variant="outline" onClick={() => setIsPayModalOpen(false)}>
-                                    {t("Cancel")}
-                                </Button>
-                                <Button
-                                    onClick={async () => {
-                                        const order = orders.find(o => o.id === currentOrderId);
-                                        const remaining = order?.remainingAmount || 0;
-
-                                        let finalAllPaid = true;
-                                        let finalPaidAmount = undefined;
-
-                                        if (!payPaidAll) {
-                                            const paid = Number(payPaidAmount);
-                                            if (isNaN(paid) || paid < 0) {
-                                                setPayError(t("Enter valid amount"));
-                                                return;
-                                            }
-                                            if (paid >= remaining) {
-                                                setPayError(t("Partial paid amount must be less than remaining amount"));
-                                                return;
-                                            }
-                                            finalAllPaid = false;
-                                            finalPaidAmount = paid;
-                                        } else {
-                                            finalAllPaid = true;
-                                            finalPaidAmount = remaining;
-                                        }
-
-                                        setPaying(true);
-                                        try {
-                                            await AdminApi.payOrder(currentOrderId, finalAllPaid, finalPaidAmount);
-                                            setIsPayModalOpen(false);
-                                            await fetchOrders();
-                                            await AdminApi.sendPayInvoice(currentOrderId);
-                                        } catch (error) {
-                                            console.error("Failed to pay order", error);
-                                            setPayError(t("Failed to pay order. Please try again."));
-                                        } finally {
-                                            setPaying(false);
-                                        }
-                                    }}
-                                    disabled={paying}
-                                >
-                                    {paying ? (
-                                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"/>
-                                    ) : (
-                                        t("Confirm Pay")
-                                    )}
-                                </Button>
-                            </div>
-                        </motion.div>
-                    </div>
-                </div>
-            )}
-
-            {isDeliverModalOpen && (
-                <div className="fixed inset-0 z-100 overflow-y-auto">
-                    <motion.div
-                        initial="hidden"
-                        animate="visible"
-                        exit="exit"
-                        variants={overlayVariants}
-                        className="fixed inset-0 bg-black"
-                        onClick={() => setIsDeliverModalOpen(false)}
-                    />
-                    <div className="fixed inset-0 flex items-center justify-center p-4">
-                        <motion.div
-                            initial="hidden"
-                            animate="visible"
-                            exit="exit"
-                            variants={modalVariants}
-                            className="relative bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-xl"
-                        >
-                            {(() => {
-                                const order = orders.find(o => o.id === currentOrderId);
-                                const remaining = order?.remainingAmount || 0;
-
-                                return (
-                                    <>
-                                        <h3 className="text-lg font-medium mb-4">{t("Deliver Order")}</h3>
-
-                                        <p className="mb-2">
-                                            {t("Remaining Amount")}:{" "}
-                                            <span className="font-bold text-red-600">
-                  {remaining} MRU
-                </span>
-                                        </p>
-
-                                        {order?.paymentStatus !== "PAID" && (
-                                            <>
-                                                <div className="space-y-2 mb-4">
-                                                    <label className="flex items-center space-x-2">
-                                                        <input
-                                                            type="radio"
-                                                            checked={deliverPaidAll}
-                                                            onChange={() => {
-                                                                setDeliverPaidAll(true);
-                                                                setDeliverPaidAmount("");
-                                                                setDeliverError("");
-                                                            }}
-                                                        />
-                                                        <span>{t("Paid All")}</span>
-                                                    </label>
-                                                    <label className="flex items-center space-x-2">
-                                                        <input
-                                                            type="radio"
-                                                            checked={!deliverPaidAll}
-                                                            onChange={() => {
-                                                                setDeliverPaidAll(false);
-                                                                setDeliverPaidAmount("");
-                                                            }}
-                                                        />
-                                                        <span>{t("Paid Partial")}</span>
-                                                    </label>
-                                                </div>
-
-                                                {!deliverPaidAll && (
-                                                    <div className="mb-4">
-                                                        <input
-                                                            className="w-full border border-gray-300 rounded p-2"
-                                                            placeholder={t("Enter partial paid amount")}
-                                                            value={deliverPaidAmount}
-                                                            onChange={(e) => setDeliverPaidAmount(e.target.value)}
-                                                        />
-                                                        {deliverError && (
-                                                            <p className="text-sm text-red-600 mt-1">{deliverError}</p>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </>
-                                        )}
-
-                                        <div className="flex justify-end space-x-3">
-                                            <Button variant="outline" onClick={() => setIsDeliverModalOpen(false)}>
-                                                {t("Cancel")}
-                                            </Button>
-                                            <Button
-                                                onClick={async () => {
-                                                    const order = orders.find(o => o.id === currentOrderId);
-                                                    const remaining = order?.remainingAmount || 0;
-
-                                                    let finalAllPaid = true;
-                                                    let finalPaidAmount = undefined;
-
-                                                    if (order?.paymentStatus !== "PAID") {
-                                                        if (!deliverPaidAll) {
-                                                            const paid = Number(deliverPaidAmount);
-                                                            if (isNaN(paid) || paid < 0) {
-                                                                setDeliverError(t("Enter valid amount"));
-                                                                return;
-                                                            }
-                                                            if (paid >= remaining) {
-                                                                setDeliverError(t("Partial paid amount must be less than remaining amount"));
-                                                                return;
-                                                            }
-                                                            finalAllPaid = false;
-                                                            finalPaidAmount = paid;
-                                                        } else {
-                                                            finalAllPaid = true;
-                                                            finalPaidAmount = remaining;
-                                                        }
-                                                    }
-
-                                                    if (remaining === 0) {
-                                                        finalAllPaid = true;
-                                                        finalPaidAmount = undefined;
-                                                    }
-
-                                                    setIsDelivering(true);
-
-                                                    try {
-                                                        await AdminApi.deliverOrder(currentOrderId, finalAllPaid, finalPaidAmount);
-                                                        setIsDelivering(false);
-                                                        setIsDeliverModalOpen(false);
-                                                        fetchOrders();
-                                                        await AdminApi.sendDeliverInvoice(currentOrderId);
-                                                        toast.success(t("Order delivered successfully"));
-                                                    } catch (error) {
-                                                        console.error("Failed to deliver order", error);
-                                                        setDeliverError(t("Failed to deliver order. Please try again."));
-                                                        toast.error(t("Failed to deliver order. Please try again."));
-                                                    } finally {
-                                                        setIsDelivering(false);
-                                                    }
-                                                }}
-                                                disabled={isDelivering}
-                                            >
-                                                {isDelivering ? (
-                                                    <div className="flex items-center justify-center">
-                                                        <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373
-0 0 5.373 0 12h4zm2 5.291A7.962
-7.962 0 014 12H0c0 3.042 1.135
-5.824 3 7.938l3-2.647z"></path>
-                                                        </svg>
-                                                        {t("Delivering...")}
-                                                    </div>
-                                                ) : (
-                                                    t("Confirm Deliver")
-                                                )}
-                                            </Button>
-
-                                        </div>
-                                    </>
-                                );
-                            })()}
-                        </motion.div>
-                    </div>
                 </div>
             )}
 
