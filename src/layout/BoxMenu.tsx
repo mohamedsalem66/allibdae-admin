@@ -48,11 +48,11 @@ const allMenuItems: MenuItem[] = [
   },
 
   {
-    name: "Essafwa Orders",
+    name: "Allibdae Orders",
     icon: <BoxCubeIcon />,
     path: "/allibdae-orders",
     logo: "/images/logo/browser_logo.png",
-    description: "Essafwa order management",
+    description: "Allibdae order management",
     color: "bg-gradient-to-br from-blue-light-50 to-cyan-50 dark:from-blue-light-900/20 dark:to-cyan-900/20",
     backgroundIcon: <BoxCubeIcon />
   },
