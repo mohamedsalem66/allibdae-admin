@@ -15,6 +15,8 @@ import {AdminApi} from "@/app/api/AdminApi";
 import {EyeIcon, UserIcon} from "@/icons";
 import CategorySelect from "@/components/CategorySelect";
 import { HiOutlinePrinter } from "react-icons/hi";
+import { FaGlasses } from "react-icons/fa";
+import { MdDiscount } from "react-icons/md";
 import BackToMenu from "@/components/common/BackToMenu";
 import {DraftGlassesApi} from "@/app/api/DraftGlassesApi";
 
@@ -50,7 +52,12 @@ interface GlassesOrder {
         prepayAmount: number | null;
         hasAdd: boolean;
     };
-    factureId: number | null;
+    factureId: string | number | null;
+    invoiceType?: string;
+    withFrame?: boolean;
+    framePrice?: number | null;
+    withDiscount?: boolean;
+    discountPrice?: number | null;
     paymentStatus: "PAID" | "PARTIAL_PAID" | "UNPAID";
     paidAmount: number | null;
     remainingAmount: number;
@@ -73,6 +80,11 @@ interface NewOrderData {
     clientName: string;
     clientTel: string;
     factureId: string;
+    invoiceType: string;
+    withFrame: boolean;
+    framePrice: string;
+    withDiscount: boolean;
+    discountPourcentage: string;
     rightSphere: string;
     rightCylinder: string;
     rightAxis: string;
@@ -177,6 +189,11 @@ export default function GlassesOrders() {
         clientName: "",
         clientTel: "",
         factureId: "",
+        invoiceType: "Facture",
+        withFrame: false,
+        framePrice: "",
+        withDiscount: false,
+        discountPourcentage: "",
         rightSphere: "",
         rightCylinder: "",
         rightAxis: "",
@@ -336,7 +353,7 @@ export default function GlassesOrders() {
         }
 
         if (Number(totalPrice) < 0) {
-            setTotalPriceError(t("Total price must be greater than 0"));
+            setTotalPriceError(t("Glasses price must be greater than 0"));
             return;
         }
 
@@ -400,12 +417,31 @@ export default function GlassesOrders() {
             setUpdatingStatus(null);
         }
     };
+    const getNextFactureId = (): string => {
+        if (orders.length === 0) return "1";
+        const maxId = Math.max(
+            0,
+            ...orders.map((o) => {
+                const id = o.factureId;
+                if (id == null) return 0;
+                const n = typeof id === "string" ? parseInt(id, 10) : Number(id);
+                return isNaN(n) ? 0 : n;
+            })
+        );
+        return String(maxId + 1);
+    };
+
     const openCreateModal = () => {
         setIsCreateModalOpen(true);
         setNewOrderData({
             clientName: "",
             clientTel: "",
-            factureId: "",
+            factureId: getNextFactureId(),
+            invoiceType: "Facture",
+            withFrame: false,
+            framePrice: "",
+            withDiscount: false,
+            discountPourcentage: "",
             rightSphere: "",
             rightCylinder: "",
             rightAxis: "",
@@ -437,6 +473,17 @@ export default function GlassesOrders() {
             const payload = {
                 clientName: newOrderData.clientName ? newOrderData.clientName : "",
                 clientTel: newOrderData.clientTel ? newOrderData.clientTel : "",
+                factureId: newOrderData.factureId || null,
+                invoiceType: newOrderData.invoiceType || "Facture",
+                withFrame: newOrderData.withFrame,
+                framePrice: newOrderData.withFrame && newOrderData.framePrice ? Number(newOrderData.framePrice) : null,
+                withDiscount: newOrderData.withDiscount,
+                discountPrice: newOrderData.withDiscount && newOrderData.discountPourcentage && newOrderData.totalPrice
+                    ? Math.round(
+                        (Number(newOrderData.totalPrice) + (newOrderData.withFrame && newOrderData.framePrice ? Number(newOrderData.framePrice) : 0))
+                        * Number(newOrderData.discountPourcentage) / 100
+                    )
+                    : null,
                 paidAmount: Number(newOrderData.paidAmount),
                 totalPrice: Number(newOrderData.totalPrice),
                 rightSphere: newOrderData.rightEyeEnabled ? newOrderData.rightSphere : "",
@@ -569,15 +616,25 @@ export default function GlassesOrders() {
             errors.categoryName = t("Category name is required when selecting 'Other'");
         }
 
-        if (!newOrderData.totalPrice || isNaN(Number(newOrderData.totalPrice)) || Number(newOrderData.totalPrice) < 0) {
-            errors.totalPrice = t("Total price is required and must be a valid number");
+        if (!newOrderData.totalPrice || isNaN(Number(newOrderData.totalPrice)) || Number(newOrderData.totalPrice) <= 0) {
+            errors.totalPrice = t("Glasses price is required and must be a positive number");
         }
 
         if (!newOrderData.paidAmount || isNaN(Number(newOrderData.paidAmount)) || Number(newOrderData.paidAmount) < 0) {
-            errors.paidAmount = t("Paid amount is required and must be a valid number");
+            errors.paidAmount = t("Paid amount is required and must be a positive number");
         }
         else if (Number(newOrderData.paidAmount) > Number(newOrderData.totalPrice)) {
             errors.paidAmount = t("Paid amount cannot exceed total price");
+        }
+
+        if (newOrderData.withFrame && (!newOrderData.framePrice || isNaN(Number(newOrderData.framePrice)) || Number(newOrderData.framePrice) <= 0)) {
+            errors.framePrice = t("Frame price is required and must be a positive number");
+        }
+        if (newOrderData.withDiscount) {
+            const pct = Number(newOrderData.discountPourcentage);
+            if (!newOrderData.discountPourcentage || isNaN(pct) || pct < 1 || pct > 100) {
+                errors.discountPourcentage = t("Discount percentage must be between 1 and 100");
+            }
         }
 
         if (activeTab === 'client') {
@@ -628,7 +685,12 @@ export default function GlassesOrders() {
         setNewOrderData({
             clientName: "",
             clientTel: "",
-            factureId: "",
+            factureId: getNextFactureId(),
+            invoiceType: "Facture",
+            withFrame: false,
+            framePrice: "",
+            withDiscount: false,
+            discountPourcentage: "",
             rightSphere: "",
             rightCylinder: "",
             rightAxis: "",
@@ -690,7 +752,7 @@ export default function GlassesOrders() {
             const matchesOpticTel = order.optic?.tel?.includes(query) || false;
             const matchesOrderId = order.id.toString().includes(query);
             const matchesClientTel = order.clientTel?.includes(query) || false;
-            const matchesFactureId = order.factureId?.includes(query) || false;
+            const matchesFactureId = (order.factureId != null && String(order.factureId).toLowerCase().includes(query)) || false;
             if (
                 !matchesClientName &&
                 !matchesOpticName &&
@@ -860,12 +922,32 @@ export default function GlassesOrders() {
                             <div className="p-4">
                                 <div className="flex justify-between items-start mb-2">
                                     <div className="flex flex-col">
-                                        <h3 className="font-medium text-gray-800 dark:text-white">
-                                            #{order.id} {order.factureId && `(F: ${order.factureId})`} - {order.clientName}
-                                        </h3>
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="font-medium text-gray-800 dark:text-white">
+                                                #{order.id} {order.factureId != null && `(F: ${order.factureId})`} - {order.clientName}
+                                            </h3>
+                                            {order.withFrame && (
+                                                <div className="flex items-center gap-1 text-blue-light-600 dark:text-blue-light-400">
+                                                    <FaGlasses className="w-4 h-4" />
+                                                </div>
+                                            )}
+                                        </div>
                                         <h3 className={`${isRTL ? 'text-m' : 'text-xs'} font-medium text-gray-800 dark:text-white`}>
-                                            {order?.optic?.opticName != null ? order.optic?.opticName : `${isRTL ? `الإبداع للنظارات` : `Allibdae Optique`}`}
+                                            {order?.optic?.opticName != null ? order.optic?.opticName : (isRTL ? "الإبداع للنظارات" : "Allibdae Optique")}
                                         </h3>
+                                        {order.withDiscount && order.discountPrice != null ? (
+                                            <div className="flex items-center gap-1 mt-1 text-blue-light-600 dark:text-blue-light-400">
+                                                <MdDiscount className="w-4 h-4" />
+                                                <span className="text-xs font-medium">
+                                                    {t("Discount")}: {order.discountPrice} MRU
+                                                </span>
+                                            </div>
+                                        ) : order.withDiscount ? (
+                                            <div className="flex items-center gap-1 mt-1 text-gray-500 dark:text-gray-400">
+                                                <MdDiscount className="w-4 h-4" />
+                                                <span className="text-xs">{t("Discount not applied")}</span>
+                                            </div>
+                                        ) : null}
                                     </div>
                                     <div className="flex items-center gap-2">
             <span
@@ -878,6 +960,10 @@ export default function GlassesOrders() {
 
 
                                 <div className="grid grid-cols-2 gap-2 text-sm">
+                                    <div>
+                                        <p className="text-gray-800 dark:text-gray-400">{t("Invoice Type")}:</p>
+                                        <p>{order.invoiceType ?? "—"}</p>
+                                    </div>
                                     <div>
                                         <p className="text-gray-800 dark:text-gray-400">{t("Category")}:</p>
                                         <p>{order?.category?.name}</p>
@@ -893,7 +979,7 @@ export default function GlassesOrders() {
 
                                 <div className="grid grid-cols-3 gap-2 mt-2 text-sm">
                                     <div>
-                                        <p className="text-gray-800 dark:text-gray-400">{t("Total")}:</p>
+                                        <p className="text-gray-800 dark:text-gray-400">{t("Glasses Price")}:</p>
                                         <p>{order?.totalPrice} MRU</p>
                                     </div>
                                     <div>
@@ -963,6 +1049,9 @@ export default function GlassesOrders() {
                                 {t("Optic")}
                             </th>
                             <th className={`px-6 py-3 ${isRTL ? 'text-right' : 'text-left'} ${isRTL ? 'text-m' : 'text-xs'} font-medium text-gray-800 dark:text-gray-400 uppercase tracking-wider`}>
+                                {t("Invoice Type")}
+                            </th>
+                            <th className={`px-6 py-3 ${isRTL ? 'text-right' : 'text-left'} ${isRTL ? 'text-m' : 'text-xs'} font-medium text-gray-800 dark:text-gray-400 uppercase tracking-wider`}>
                                 {t("Total")}
                             </th>
                             <th className={`px-6 py-3 ${isRTL ? 'text-right' : 'text-left'} ${isRTL ? 'text-m' : 'text-xs'} font-medium text-gray-800 dark:text-gray-400 uppercase tracking-wider`}>
@@ -988,12 +1077,41 @@ export default function GlassesOrders() {
                                     onClick={() => toggleRowExpand(order.id)}
                                 >
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                                        #{order.id} {order.factureId && <span
+                                        #{order.id} {order.factureId != null && <span
                                         className="text-gray-800 dark:text-gray-400">(F: {order.factureId})</span>}
                                     </td>
 
                                     <td className="px-6 py-4 whitespace-nowrap text-m text-gray-800 dark:text-gray-400">
-                                        {order.optic?.opticName != null ? order.optic?.opticName : `${isRTL ? `الإبداع للنظارات` : `Allibdae Optique`}`}
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <span>{order.optic?.opticName != null ? order.optic?.opticName : (isRTL ? "الإبداع للنظارات" : "Allibdae Optique")}</span>
+                                                {order.withFrame && (
+                                                    <div className="flex items-center gap-1 text-blue-light-600 dark:text-blue-light-400" title={t("with frame")}>
+                                                        <FaGlasses className="w-4 h-4" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {order.withDiscount && (
+                                                <div className="flex items-center gap-1 mt-1">
+                                                    {order.discountPrice != null ? (
+                                                        <div className="flex items-center gap-1 text-blue-light-600 dark:text-blue-light-400">
+                                                            <MdDiscount className="w-4 h-4" />
+                                                            <span className="text-xs font-medium">
+                                                                {t("Discount")}: {order.discountPrice} MRU
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                                                            <MdDiscount className="w-4 h-4" />
+                                                            <span className="text-xs">{t("Discount not applied")}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-400">
+                                        {order.invoiceType ?? "—"}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-400">
                                         {order.totalPrice != null ? `${order.totalPrice} MRU` : '---'}
@@ -1072,7 +1190,7 @@ export default function GlassesOrders() {
                                 </tr>
                                 {expandedRow === order.id && (
                                     <tr className="bg-gray-50 dark:bg-gray-700">
-                                        <td colSpan={8} className="px-6 py-4">
+                                        <td colSpan={9} className="px-6 py-4">
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div>
                                                     <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">{t("Details")}</h4>
@@ -1087,8 +1205,24 @@ export default function GlassesOrders() {
                                                         <p><span
                                                             className="text-gray-800 dark:text-gray-400">{t("Category")} : </span> {order.category.name}
                                                         </p>
-
-
+                                                        <p><span className="text-gray-800 dark:text-gray-400">{t("Invoice Type")}:</span> {order.invoiceType ?? "—"}</p>
+                                                        {order.withFrame && (
+                                                            <p className="flex items-center gap-2">
+                                                                <FaGlasses className="w-4 h-4 text-blue-light-600 dark:text-blue-light-400" />
+                                                                <span className="text-gray-800 dark:text-gray-400">{t("with frame")}</span>
+                                                                {order.framePrice != null && <span> ({order.framePrice} MRU)</span>}
+                                                            </p>
+                                                        )}
+                                                        {order.withDiscount && (
+                                                            <p className="flex items-center gap-2">
+                                                                <MdDiscount className="w-4 h-4 text-blue-light-600 dark:text-blue-light-400" />
+                                                                <span className="text-gray-800 dark:text-gray-400">
+                                                                    {order.discountPrice != null
+                                                                        ? `${t("Discount")}: ${order.discountPrice} MRU`
+                                                                        : t("Discount not applied")}
+                                                                </span>
+                                                            </p>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <div>
@@ -1195,9 +1329,9 @@ export default function GlassesOrders() {
                                 </div>
                                 <div className="p-4 space-y-4">
                                     <div>
-                                        <Label>{t("Total Price")} *</Label>
+                                        <Label>{t("Glasses Price")} *</Label>
                                         <Input
-                                            placeholder={t("Enter total price")}
+                                            placeholder={t("Enter glasses price")}
                                             value={totalPrice}
                                             onChange={(e) => {
                                                 setTotalPrice(e.target.value);
@@ -1294,6 +1428,35 @@ export default function GlassesOrders() {
                                 <div className="p-4 space-y-4 overflow-y-auto">
                                     {currentStep === 1 ? (
                                         <>
+                                            <div>
+                                                <Label>{t("Facture ID")} *</Label>
+                                                <Input
+                                                    name="factureId"
+                                                    defaultValue={newOrderData.factureId}
+                                                    onChange={handleInputChange}
+                                                    placeholder={t("Facture ID")}
+                                                    error={!!createErrors.factureId}
+                                                />
+                                                {createErrors.factureId && (
+                                                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                                        {createErrors.factureId}
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            <div>
+                                                <Label>{t("Invoice Type")}</Label>
+                                                <select
+                                                    name="invoiceType"
+                                                    value={newOrderData.invoiceType}
+                                                    onChange={handleInputChange}
+                                                    className="w-full rounded-md border border-gray-300 dark:border-gray-600 p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                                >
+                                                    <option value="Facture">{t("Facture")}</option>
+                                                    <option value="Devis">{t("Devis")}</option>
+                                                </select>
+                                            </div>
+
                                             <div
                                                 className="flex border-b border-gray-200 dark:border-gray-700 mb-8 gap-1">
                                                 <button
@@ -1451,13 +1614,110 @@ export default function GlassesOrders() {
                                                 )}
                                             </div>
 
+                                            {newOrderData.categoryId !== 0 && (
+                                                <>
+                                                    <div className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-600 rounded-lg">
+                                                        <div className="flex items-center gap-2">
+                                                            <FaGlasses className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                                                            <div>
+                                                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                                    {t("With Frame")}
+                                                                </Label>
+                                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                                    {t("Order includes frame")}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <Switch
+                                                            label={" "}
+                                                            defaultChecked={newOrderData.withFrame}
+                                                            onChange={(checked) => setNewOrderData(prev => ({ ...prev, withFrame: checked }))}
+                                                        />
+                                                    </div>
+                                                    {newOrderData.withFrame && (
+                                                        <div>
+                                                            <Label>{t("Frame Price")} *</Label>
+                                                            <div className="relative">
+                                                                <Input
+                                                                    name="framePrice"
+                                                                    type="number"
+                                                                    defaultValue={newOrderData.framePrice}
+                                                                    onChange={handleInputChange}
+                                                                    placeholder={t("Enter frame price")}
+                                                                    error={!!createErrors.framePrice}
+                                                                    className={isRTL ? "pl-12" : "pr-12"}
+                                                                />
+                                                                <div className={`absolute ${isRTL ? "left-4" : "right-4"} top-1/2 -translate-y-1/2 pointer-events-none z-10`}>
+                                                                    <span className="text-gray-500 dark:text-gray-400 font-semibold text-lg">MRU</span>
+                                                                </div>
+                                                            </div>
+                                                            {createErrors.framePrice && (
+                                                                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{createErrors.framePrice}</p>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    <div className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-600 rounded-lg">
+                                                        <div className="flex items-center gap-2">
+                                                            <MdDiscount className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                                                            <div>
+                                                                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                                    {t("With Discount")}
+                                                                </Label>
+                                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                                    {t("Apply discount to this order")}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <Switch
+                                                            label={" "}
+                                                            defaultChecked={newOrderData.withDiscount}
+                                                            onChange={(checked) => setNewOrderData(prev => ({
+                                                                ...prev,
+                                                                withDiscount: checked,
+                                                                discountPourcentage: checked ? prev.discountPourcentage : ""
+                                                            }))}
+                                                        />
+                                                    </div>
+                                                    {newOrderData.withDiscount && (
+                                                        <div>
+                                                            <Label>{t("Discount Percentage")} *</Label>
+                                                            <div className="relative">
+                                                                <Input
+                                                                    name="discountPourcentage"
+                                                                    type="number"
+                                                                    defaultValue={newOrderData.discountPourcentage}
+                                                                    onChange={(e) => {
+                                                                        const value = e.target.value;
+                                                                        if (value === "" || (Number(value) >= 1 && Number(value) <= 100)) {
+                                                                            setNewOrderData(prev => ({ ...prev, discountPourcentage: value }));
+                                                                        }
+                                                                    }}
+                                                                    placeholder={t("Enter discount percentage (1-100)")}
+                                                                    min="1"
+                                                                    max="100"
+                                                                    error={!!createErrors.discountPourcentage}
+                                                                    className={isRTL ? "pl-12" : "pr-12"}
+                                                                />
+                                                                <div className={`absolute ${isRTL ? "left-4" : "right-4"} top-1/2 -translate-y-1/2 pointer-events-none z-10`}>
+                                                                    <span className="text-gray-500 dark:text-gray-400 font-semibold text-lg">%</span>
+                                                                </div>
+                                                            </div>
+                                                            {createErrors.discountPourcentage && (
+                                                                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{createErrors.discountPourcentage}</p>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+
                                             <div>
-                                                <Label>{t("Total Price")} *</Label>
+                                                <Label>{t("Glasses Price")} *</Label>
                                                 <Input
                                                     name="totalPrice"
                                                     defaultValue={newOrderData.totalPrice}
                                                     onChange={handleInputChange}
-                                                    placeholder={t("Enter total price")}
+                                                    placeholder={t("Enter glasses price")}
                                                     error={createErrors.totalPrice}
                                                 />
                                                 {createErrors.totalPrice && (
@@ -1471,11 +1731,19 @@ export default function GlassesOrders() {
                                                 <Label>{t("Paid Amount")} *</Label>
                                                 <Input
                                                     name="paidAmount"
+                                                    type="number"
                                                     defaultValue={newOrderData.paidAmount}
-                                                    onChange={handleInputChange}
+                                                    onChange={(e) => {
+                                                        const value = e.target.value;
+                                                        if (value === "" || Number(value) >= 0) {
+                                                            handleInputChange(e);
+                                                        }
+                                                    }}
                                                     placeholder={t("Enter paid amount")}
+                                                    min="0"
+                                                    step="0.01"
                                                     max={categories.find(c => c.id === Number(newOrderData.categoryId))?.amount || undefined}
-                                                    error={createErrors.paidAmount}
+                                                    error={!!createErrors.paidAmount}
                                                 />
                                                 {createErrors.paidAmount && (
                                                     <p className="mt-1 text-sm text-red-600 dark:text-red-400">
@@ -1694,6 +1962,38 @@ export default function GlassesOrders() {
                                             <div className="border rounded-lg p-4">
                                                 <h4 className="font-medium mb-3">{t("Order Summary")}</h4>
                                                 <div className="space-y-2">
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600 dark:text-gray-300">{t("Facture ID")}:</span>
+                                                        <span className="font-medium">{newOrderData.factureId}</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600 dark:text-gray-300">{t("Invoice Type")}:</span>
+                                                        <span className="font-medium">{newOrderData.invoiceType}</span>
+                                                    </div>
+                                                    {newOrderData.withFrame && (
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-gray-600 dark:text-gray-300 flex items-center gap-2">
+                                                                <FaGlasses className="w-4 h-4 text-blue-light-600 dark:text-blue-light-400" />
+                                                                {t("With Frame")}:
+                                                            </span>
+                                                            <span className="font-medium text-blue-light-600 dark:text-blue-light-400">
+                                                                {newOrderData.framePrice ? `${newOrderData.framePrice} MRU` : t("Yes")}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {newOrderData.withDiscount && (
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-gray-600 dark:text-gray-300 flex items-center gap-2">
+                                                                <MdDiscount className="w-4 h-4 text-blue-light-600 dark:text-blue-light-400" />
+                                                                {t("Discount")}:
+                                                            </span>
+                                                            <span className="font-medium text-blue-light-600 dark:text-blue-light-400">
+                                                                {newOrderData.discountPourcentage
+                                                                    ? `${newOrderData.discountPourcentage}% (${newOrderData.totalPrice ? Math.round((Number(newOrderData.totalPrice) + (newOrderData.withFrame && newOrderData.framePrice ? Number(newOrderData.framePrice) : 0)) * Number(newOrderData.discountPourcentage) / 100) : 0} MRU)`
+                                                                    : t("Not specified")}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                     {selectedOpticId && (
                                                         <div className="flex justify-between">
                                                             <span
@@ -1780,24 +2080,48 @@ export default function GlassesOrders() {
                                                     )}
                                                 </div>
                                                 <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-lg font-medium">{t("Total")}:</span>
-                                                        <span className="text-lg font-bold">
-                      {newOrderData.totalPrice ? `${newOrderData.totalPrice} MRU` : ''}
-                    </span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-lg font-medium">{t("Paid")}:</span>
-                                                        <span className="text-lg font-bold text-green-800 dark:text-green-400">
-                      {newOrderData.totalPrice ? `${newOrderData.paidAmount} MRU` : ''}
-                    </span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-lg font-medium">{t("Remaining")}:</span>
-                                                        <span className="text-lg font-bold text-red-800 dark:text-red-400">
-                      {newOrderData.totalPrice ? `${Number(newOrderData.totalPrice) - Number(newOrderData.paidAmount)} MRU` : ''}
-                    </span>
-                                                    </div>
+                                                    {(() => {
+                                                        const glassesPrice = Number(newOrderData.totalPrice) || 0;
+                                                        const framePriceVal = newOrderData.withFrame && newOrderData.framePrice ? Number(newOrderData.framePrice) : 0;
+                                                        const discountAmount = newOrderData.withDiscount && newOrderData.discountPourcentage
+                                                            ? Math.round((glassesPrice + framePriceVal) * Number(newOrderData.discountPourcentage) / 100)
+                                                            : 0;
+                                                        const totalAmount = glassesPrice + framePriceVal - discountAmount;
+                                                        const paidAmountVal = Number(newOrderData.paidAmount) || 0;
+                                                        const remainingAmount = totalAmount - paidAmountVal;
+                                                        return (
+                                                            <>
+                                                                <div className="flex justify-between items-center">
+                                                                    <span className="text-lg font-medium">{t("Glasses Price")}:</span>
+                                                                    <span className="text-lg font-bold">{glassesPrice} MRU</span>
+                                                                </div>
+                                                                {newOrderData.withFrame && (
+                                                                    <div className="flex justify-between items-center">
+                                                                        <span className="text-lg font-medium">{t("Frame Price")}:</span>
+                                                                        <span className="text-lg font-bold">{framePriceVal} MRU</span>
+                                                                    </div>
+                                                                )}
+                                                                {newOrderData.withDiscount && newOrderData.discountPourcentage && (
+                                                                    <div className="flex justify-between items-center">
+                                                                        <span className="text-lg font-medium">{t("Discount")}:</span>
+                                                                        <span className="text-lg font-bold text-blue-light-600 dark:text-blue-light-400">-{discountAmount} MRU</span>
+                                                                    </div>
+                                                                )}
+                                                                <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-600">
+                                                                    <span className="text-lg font-medium">{t("Total Amount")}:</span>
+                                                                    <span className="text-lg font-bold">{totalAmount} MRU</span>
+                                                                </div>
+                                                                <div className="flex justify-between items-center">
+                                                                    <span className="text-lg font-medium">{t("Paid")}:</span>
+                                                                    <span className="text-lg font-bold text-green-800 dark:text-green-400">{paidAmountVal} MRU</span>
+                                                                </div>
+                                                                <div className="flex justify-between items-center">
+                                                                    <span className="text-lg font-medium">{t("Remaining")}:</span>
+                                                                    <span className="text-lg font-bold text-red-800 dark:text-red-400">{remainingAmount} MRU</span>
+                                                                </div>
+                                                            </>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </div>
                                         </div>
