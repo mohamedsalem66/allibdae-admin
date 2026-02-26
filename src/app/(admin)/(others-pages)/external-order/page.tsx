@@ -207,6 +207,7 @@ export default function GlassesOrders() {
     const [whatsappQrCode, setWhatsappQrCode] = useState<string | null>(null);
     const [isCheckingWhatsappStatus, setIsCheckingWhatsappStatus] = useState(false);
     const [pendingWhatsappAction, setPendingWhatsappAction] = useState<(() => Promise<void>) | null>(null);
+    const [qrExpirySeconds, setQrExpirySeconds] = useState<number | null>(null);
 
     const checkWhatsappConnection = async (onConnected?: () => Promise<void>): Promise<boolean> => {
         try {
@@ -239,6 +240,45 @@ export default function GlassesOrders() {
     useEffect(() => {
         fetchAllOptics();
     }, []);
+
+    useEffect(() => {
+        if (!isWhatsappModalOpen) {
+            setQrExpirySeconds(null);
+            return;
+        }
+
+        if (whatsappQrCode && qrExpirySeconds === null) {
+            setQrExpirySeconds(45);
+        }
+    }, [isWhatsappModalOpen, whatsappQrCode]);
+
+    useEffect(() => {
+        if (!isWhatsappModalOpen || qrExpirySeconds === null) return;
+
+        if (qrExpirySeconds === 0) {
+            (async () => {
+                try {
+                    const refresh = await WhatsappApi.getQrCode();
+                    const refreshed = refresh?.data?.qrCode;
+                    if (refreshed) {
+                        setWhatsappQrCode(refreshed);
+                    }
+                    setQrExpirySeconds(45);
+                } catch (error) {
+                    console.error("Failed to refresh WhatsApp QR code:", error);
+                    toast.error(t("Failed to check WhatsApp connection"));
+                    setQrExpirySeconds(45);
+                }
+            })();
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            setQrExpirySeconds((prev) => (prev !== null ? prev - 1 : prev));
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, [isWhatsappModalOpen, qrExpirySeconds]);
 
     const fetchAllOptics = async () => {
         try {
@@ -2422,6 +2462,7 @@ export default function GlassesOrders() {
                 onClose={() => {
                     setIsWhatsappModalOpen(false);
                     setPendingWhatsappAction(null);
+                    setQrExpirySeconds(null);
                 }}
                 className="max-w-md mx-auto rounded-2xl overflow-hidden shadow-xl bg-white dark:bg-gray-800"
             >
@@ -2446,8 +2487,13 @@ export default function GlassesOrders() {
                         {t("Scan this QR code with your WhatsApp device to connect. After scanning, click \"Check connection\" to continue.")}
                     </p>
                     {whatsappQrCode && (
-                        <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl shadow-inner flex justify-center mb-6">
+                        <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl shadow-inner flex flex-col items-center mb-6">
                             <QRCode value={whatsappQrCode} size={220} />
+                            {qrExpirySeconds !== null && (
+                                <p className="mt-3 text-xs text-gray-500 dark:text-gray-300">
+                                    {t("QR code refreshes in {{seconds}}s", { seconds: qrExpirySeconds })}
+                                </p>
+                            )}
                         </div>
                     )}
                     <div className={`flex gap-3 justify-end ${isRTL ? "flex-row-reverse" : ""}`}>
