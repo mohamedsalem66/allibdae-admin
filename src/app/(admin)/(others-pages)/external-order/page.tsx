@@ -17,8 +17,9 @@ import {EyeIcon, UserIcon} from "@/icons";
 import CategorySelect from "@/components/CategorySelect";
 import { HiOutlinePrinter } from "react-icons/hi";
 import BackToMenu from "@/components/common/BackToMenu";
-
-
+import { WhatsappApi } from "@/app/api/WhatsappApi";
+import { Modal } from "@/components/ui/modal";
+import QRCode from "react-qr-code";
 
 interface GlassesOrder {
     id: number;
@@ -202,9 +203,38 @@ export default function GlassesOrders() {
     const [activeTab, setActiveTab] = useState<'client' | 'optic'>('client');
     const [selectedOpticId, setSelectedOpticId] = useState<number | null>(null);
     const [loadingStates, setLoadingStates] = useState<LoadingStates>({});
+    const [isWhatsappModalOpen, setIsWhatsappModalOpen] = useState(false);
+    const [whatsappQrCode, setWhatsappQrCode] = useState<string | null>(null);
+    const [isCheckingWhatsappStatus, setIsCheckingWhatsappStatus] = useState(false);
+    const [pendingWhatsappAction, setPendingWhatsappAction] = useState<(() => Promise<void>) | null>(null);
 
+    const checkWhatsappConnection = async (onConnected?: () => Promise<void>): Promise<boolean> => {
+        try {
+            const statusResponse = await WhatsappApi.getStatus();
+            if (statusResponse?.data?.connected) {
+                if (onConnected) {
+                    await onConnected();
+                }
+                return true;
+            }
 
+            const connectResponse = await WhatsappApi.connect();
+            const qrCode = connectResponse?.data?.qrCode;
 
+            if (qrCode) {
+                setWhatsappQrCode(qrCode);
+                setPendingWhatsappAction(() => onConnected || null);
+                setIsWhatsappModalOpen(true);
+                toast.info(t("Please scan the WhatsApp QR code with your WhatsApp device, then click \"Check connection\"."));
+            }
+
+            return false;
+        } catch (error) {
+            console.error("Failed to check WhatsApp connection:", error);
+            toast.error(t("Failed to check WhatsApp connection"));
+            return false;
+        }
+    };
 
     useEffect(() => {
         fetchAllOptics();
@@ -322,6 +352,32 @@ export default function GlassesOrders() {
         setIsValidateModalOpen(true);
     };
 
+    const handleOpenValidateModal = async (orderId: number) => {
+        await checkWhatsappConnection(async () => {
+            openValidateModal(orderId);
+        });
+    };
+
+    const handleOpenPayModal = async (orderId: number) => {
+        await checkWhatsappConnection(async () => {
+            setCurrentOrderId(orderId);
+            setPayPaidAll(true);
+            setPayPaidAmount("");
+            setPayError("");
+            setIsPayModalOpen(true);
+        });
+    };
+
+    const handleOpenDeliverModal = async (orderId: number) => {
+        await checkWhatsappConnection(async () => {
+            setCurrentOrderId(orderId);
+            setDeliverPaidAll(true);
+            setDeliverPaidAmount("");
+            setDeliverError("");
+            setIsDeliverModalOpen(true);
+        });
+    };
+
     const closeValidateModal = () => {
         setIsValidateModalOpen(false);
         setCurrentOrderId(null);
@@ -432,53 +488,72 @@ export default function GlassesOrders() {
         setCurrentStep(1);
     };
 
+    const handleOpenCreateModal = async () => {
+        await checkWhatsappConnection(async () => {
+            openCreateModal();
+        });
+    };
+
     const handleCreateOrder = async () => {
         if (!validateForm()) return;
-        setCreatingOrder(true);
-        try {
-            const payload = {
-                clientName: newOrderData.clientName ? newOrderData.clientName : "",
-                clientTel: newOrderData.clientTel ? newOrderData.clientTel : "",
-                paidAmount: Number(newOrderData.paidAmount),
-                totalPrice: Number(newOrderData.totalPrice),
-                rightSphere: newOrderData.rightEyeEnabled ? newOrderData.rightSphere : "",
-                rightCylinder: newOrderData.rightEyeEnabled ? newOrderData.rightCylinder : "",
-                rightAxis: newOrderData.rightEyeEnabled && newOrderData.rightAxis ? newOrderData.rightAxis : null,
-                rightAddition: newOrderData.rightEyeEnabled ? newOrderData.rightAddition : "",
-                leftSphere: newOrderData.leftEyeEnabled ? newOrderData.leftSphere : "",
-                leftCylinder: newOrderData.leftEyeEnabled ? newOrderData.leftCylinder : "",
-                leftAxis: newOrderData.leftEyeEnabled && newOrderData.leftAxis ? newOrderData.leftAxis : null,
-                leftAddition: newOrderData.leftEyeEnabled ? newOrderData.leftAddition : "",
-                rightEye: newOrderData.rightEyeEnabled,
-                leftEye: newOrderData.leftEyeEnabled,
-                category: null,
-                optic: selectedOpticId ? { id: selectedOpticId } : null
-            };
 
-            if (newOrderData.categoryId === -1) {
-                payload.category = {
-                    name: newOrderData.categoryName || "",
-                    hasAdd: hasAddForNewCategory
+        const performCreate = async () => {
+            setCreatingOrder(true);
+            try {
+                const payload = {
+                    clientName: newOrderData.clientName ? newOrderData.clientName : "",
+                    clientTel: newOrderData.clientTel ? newOrderData.clientTel : "",
+                    paidAmount: Number(newOrderData.paidAmount),
+                    totalPrice: Number(newOrderData.totalPrice),
+                    rightSphere: newOrderData.rightEyeEnabled ? newOrderData.rightSphere : "",
+                    rightCylinder: newOrderData.rightEyeEnabled ? newOrderData.rightCylinder : "",
+                    rightAxis: newOrderData.rightEyeEnabled && newOrderData.rightAxis ? newOrderData.rightAxis : null,
+                    rightAddition: newOrderData.rightEyeEnabled ? newOrderData.rightAddition : "",
+                    leftSphere: newOrderData.leftEyeEnabled ? newOrderData.leftSphere : "",
+                    leftCylinder: newOrderData.leftEyeEnabled ? newOrderData.leftCylinder : "",
+                    leftAxis: newOrderData.leftEyeEnabled && newOrderData.leftAxis ? newOrderData.leftAxis : null,
+                    leftAddition: newOrderData.leftEyeEnabled ? newOrderData.leftAddition : "",
+                    rightEye: newOrderData.rightEyeEnabled,
+                    leftEye: newOrderData.leftEyeEnabled,
+                    category: null,
+                    optic: selectedOpticId ? { id: selectedOpticId } : null
                 };
-            } else {
-                payload.category = {
-                    id: Number(newOrderData.categoryId),
-                };
+
+                if (newOrderData.categoryId === -1) {
+                    payload.category = {
+                        name: newOrderData.categoryName || "",
+                        hasAdd: hasAddForNewCategory
+                    };
+                } else {
+                    payload.category = {
+                        id: Number(newOrderData.categoryId),
+                    };
+                }
+
+                const response = await GlassesApi.createOrder(payload);
+
+                if (response && response.data && response.data.id) {
+                    try {
+                        await GlassesApi.sendInvoice(response.data.id, selectedOpticId ? true : false);
+                    } catch (invoiceError) {
+                        console.error("Failed to send invoice:", invoiceError);
+                        toast.error(t("Order created but failed to send invoice message"));
+                    }
+                }
+
+                await fetchOrders();
+                await fetchCategories();
+                closeCreateModal();
+                setIsSuccessModalOpen(true);
+                resetForm();
+            } catch (error) {
+                console.error("Failed to create order:", error);
+            } finally {
+                setCreatingOrder(false);
             }
+        };
 
-            const response = await GlassesApi.createOrder(payload);
-            await fetchOrders();
-            await fetchCategories();
-            closeCreateModal();
-            setCreatingOrder(false);
-            setIsSuccessModalOpen(true);
-            await GlassesApi.sendInvoice(response?.data?.id, selectedOpticId ? true : false);
-            resetForm();
-        } catch (error) {
-            console.error("Failed to create order:", error);
-        } finally {
-            setCreatingOrder(false);
-        }
+        await checkWhatsappConnection(performCreate);
     };
     const handleMarkAsPaid = async (opticId: number) => {
         if (selectedOrders.length === 0) {
@@ -858,7 +933,7 @@ export default function GlassesOrders() {
                         </Select>
 
 
-                        <Button onClick={openCreateModal} size="sm" className="md:w-auto w-full">
+                        <Button onClick={handleOpenCreateModal} size="sm" className="md:w-auto w-full">
                             {t("Create New Order")}
                         </Button>
                     </div>
@@ -973,7 +1048,7 @@ export default function GlassesOrders() {
                                     className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600 flex justify-between items-center">
                                     {order.status === "PENDING" ? (
                                         <Button
-                                            onClick={() => openValidateModal(order.id)}
+                                            onClick={() => handleOpenValidateModal(order.id)}
                                             disabled={updatingStatus === order.id}
                                             size="sm"
                                             className={updatingStatus === order.id ? "bg-gray-400 cursor-not-allowed" : "bg-green-500 hover:bg-green-600"}
@@ -994,13 +1069,7 @@ export default function GlassesOrders() {
                                         <>
                                             {order.status === "READY_TO_PICKUP" && (
                                                 <Button
-                                                    onClick={() => {
-                                                        setCurrentOrderId(order.id);
-                                                        setDeliverPaidAll(true);
-                                                        setDeliverPaidAmount("");
-                                                        setDeliverError("");
-                                                        setIsDeliverModalOpen(true);
-                                                    }}
+                                                    onClick={() => handleOpenDeliverModal(order.id)}
                                                     size="sm"
                                                 >
                                                     {t("Deliver")}
@@ -1009,13 +1078,7 @@ export default function GlassesOrders() {
 
                                             {order.status !== "PENDING" && order.paymentStatus !== "PAID" && (
                                                 <Button
-                                                    onClick={() => {
-                                                        setCurrentOrderId(order.id);
-                                                        setPayPaidAll(true);
-                                                        setPayPaidAmount("");
-                                                        setPayError("");
-                                                        setIsPayModalOpen(true);
-                                                    }}
+                                                    onClick={() => handleOpenPayModal(order.id)}
                                                     size="sm"
                                                     className="bg-bleu-500 hover:bg-bleu-600"
                                                 >
@@ -1097,7 +1160,7 @@ export default function GlassesOrders() {
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         {order.status === "PENDING" ? (
                                             <Button
-                                                onClick={() => openValidateModal(order.id)}
+                                                onClick={() => handleOpenValidateModal(order.id)}
                                                 disabled={updatingStatus === order.id}
                                                 size="sm"
                                                 className={
@@ -1121,12 +1184,9 @@ export default function GlassesOrders() {
                                         ) : (
                                             <div className="flex items-center">
                                                 <Button
-                                                    onClick={() => {
-                                                        setCurrentOrderId(order.id);
-                                                        setDeliverPaidAll(true);
-                                                        setDeliverPaidAmount("");
-                                                        setDeliverError("");
-                                                        setIsDeliverModalOpen(true);
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleOpenDeliverModal(order.id);
                                                     }}
                                                     size="sm"
                                                     className="bg-[#961767] hover:bg-[#7a1255] text-white"
@@ -1280,13 +1340,7 @@ export default function GlassesOrders() {
                                             {order.paymentStatus !== "PAID" && (
                                                 <div className="mt-4 flex justify-end">
                                                     <Button
-                                                        onClick={() => {
-                                                            setCurrentOrderId(order.id);
-                                                            setPayPaidAll(true);
-                                                            setPayPaidAmount("");
-                                                            setPayError("");
-                                                            setIsPayModalOpen(true);
-                                                        }}
+                                                        onClick={() => handleOpenPayModal(order.id)}
                                                         size="sm"
                                                         className="bg-green-500 hover:bg-green-600"
                                                     >
@@ -1405,7 +1459,10 @@ export default function GlassesOrders() {
                                             await AdminApi.payOrder(currentOrderId, finalAllPaid, finalPaidAmount);
                                             setIsPayModalOpen(false);
                                             await fetchOrders();
-                                            await AdminApi.sendPayInvoice(currentOrderId);
+
+                                            await checkWhatsappConnection(async () => {
+                                                await AdminApi.sendPayInvoice(currentOrderId);
+                                            });
                                         } catch (error) {
                                             console.error("Failed to pay order", error);
                                             setPayError(t("Failed to pay order. Please try again."));
@@ -1547,7 +1604,11 @@ export default function GlassesOrders() {
                                                         setIsDelivering(false);
                                                         setIsDeliverModalOpen(false);
                                                         fetchOrders();
-                                                        await AdminApi.sendDeliverInvoice(currentOrderId);
+
+                                                        await checkWhatsappConnection(async () => {
+                                                            await AdminApi.sendDeliverInvoice(currentOrderId);
+                                                        });
+
                                                         toast.success(t("Order delivered successfully"));
                                                     } catch (error) {
                                                         console.error("Failed to deliver order", error);
@@ -2355,6 +2416,86 @@ export default function GlassesOrders() {
                 )}
 
             </AnimatePresence>
+
+            <Modal
+                isOpen={isWhatsappModalOpen}
+                onClose={() => {
+                    setIsWhatsappModalOpen(false);
+                    setPendingWhatsappAction(null);
+                }}
+                className="max-w-md mx-auto rounded-2xl overflow-hidden shadow-xl bg-white dark:bg-gray-800"
+            >
+                <div className="relative p-6">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setIsWhatsappModalOpen(false);
+                            setPendingWhatsappAction(null);
+                        }}
+                        className="absolute top-4 right-4 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        aria-label={t("Close")}
+                    >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-white text-center mb-2">
+                        {t("Connect WhatsApp")}
+                    </h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 text-center mb-5">
+                        {t("Scan this QR code with your WhatsApp device to connect. After scanning, click \"Check connection\" to continue.")}
+                    </p>
+                    {whatsappQrCode && (
+                        <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl shadow-inner flex justify-center mb-6">
+                            <QRCode value={whatsappQrCode} size={220} />
+                        </div>
+                    )}
+                    <div className={`flex gap-3 justify-end ${isRTL ? "flex-row-reverse" : ""}`}>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setIsWhatsappModalOpen(false);
+                                setPendingWhatsappAction(null);
+                            }}
+                            className="border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300"
+                        >
+                            {t("Cancel")}
+                        </Button>
+                        <Button
+                            onClick={async () => {
+                                try {
+                                    setIsCheckingWhatsappStatus(true);
+                                    const status = await WhatsappApi.getStatus();
+                                    if (status?.data?.connected) {
+                                        setIsWhatsappModalOpen(false);
+                                        const action = pendingWhatsappAction;
+                                        setPendingWhatsappAction(null);
+                                        if (action) {
+                                            await action();
+                                        }
+                                    } else {
+                                        const refresh = await WhatsappApi.getQrCode();
+                                        const refreshed = refresh?.data?.qrCode;
+                                        if (refreshed) {
+                                            setWhatsappQrCode(refreshed);
+                                        }
+                                        toast.error(t("WhatsApp is not connected yet. Please scan the QR code and try again."));
+                                    }
+                                } catch (error) {
+                                    console.error("Failed to verify WhatsApp connection:", error);
+                                    toast.error(t("Failed to verify WhatsApp connection"));
+                                } finally {
+                                    setIsCheckingWhatsappStatus(false);
+                                }
+                            }}
+                            disabled={isCheckingWhatsappStatus}
+                            className="bg-[#E92C80] hover:bg-[#d12570] text-white border-0"
+                        >
+                            {isCheckingWhatsappStatus ? t("Checking...") : t("Check connection")}
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }
