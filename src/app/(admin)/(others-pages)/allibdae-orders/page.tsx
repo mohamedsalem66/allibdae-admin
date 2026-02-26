@@ -17,6 +17,9 @@ import { HiOutlinePrinter } from "react-icons/hi";
 import { FaGlasses } from "react-icons/fa";
 import { MdDiscount } from "react-icons/md";
 import BackToMenu from "@/components/common/BackToMenu";
+import { WhatsappApi } from "@/app/api/WhatsappApi";
+import { Modal } from "@/components/ui/modal";
+import QRCode from "react-qr-code";
 
 interface EssafwaOrder {
     id: number;
@@ -162,6 +165,38 @@ export default function EssafwaOrders() {
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [hasAddForNewCategory, setHasAddForNewCategory] = useState(false);
     const [loadingStates, setLoadingStates] = useState<LoadingStates>({});
+    const [isWhatsappModalOpen, setIsWhatsappModalOpen] = useState(false);
+    const [whatsappQrCode, setWhatsappQrCode] = useState<string | null>(null);
+    const [isCheckingWhatsappStatus, setIsCheckingWhatsappStatus] = useState(false);
+    const [pendingWhatsappAction, setPendingWhatsappAction] = useState<(() => Promise<void>) | null>(null);
+
+    const checkWhatsappConnection = async (onConnected?: () => Promise<void>): Promise<boolean> => {
+        try {
+            const statusResponse = await WhatsappApi.getStatus();
+            if (statusResponse?.data?.connected) {
+                if (onConnected) {
+                    await onConnected();
+                }
+                return true;
+            }
+
+            const connectResponse = await WhatsappApi.connect();
+            const qrCode = connectResponse?.data?.qrCode;
+
+            if (qrCode) {
+                setWhatsappQrCode(qrCode);
+                setPendingWhatsappAction(() => onConnected || null);
+                setIsWhatsappModalOpen(true);
+                toast.info(t("Please scan the WhatsApp QR code with your WhatsApp device, then click \"Check connection\"."));
+            }
+
+            return false;
+        } catch (error) {
+            console.error("Failed to check WhatsApp connection:", error);
+            toast.error(t("Failed to check WhatsApp connection"));
+            return false;
+        }
+    };
 
     useEffect(() => {
         const handleResize = () => {
@@ -233,69 +268,80 @@ export default function EssafwaOrders() {
         setCurrentStep(1);
     };
 
+    const handleOpenCreateModal = async () => {
+        await checkWhatsappConnection(async () => {
+            openCreateModal();
+        });
+    };
+
     const handleCreateOrder = async () => {
         if (!validateForm()) return;
-        setCreatingOrder(true);
-        try {
-            const payload = {
-                clientName: newOrderData.clientName ? newOrderData.clientName : "",
-                clientTel: newOrderData.clientTel ? newOrderData.clientTel : "",
-                paidAmount: Number(newOrderData.paidAmount),
-                totalPaidAmount: Number(newOrderData.totalPaidAmount),
-                rightSphere: newOrderData.rightEyeEnabled ? newOrderData.rightSphere : "",
-                rightCylinder: newOrderData.rightEyeEnabled ? newOrderData.rightCylinder : "",
-                rightAxis: newOrderData.rightEyeEnabled && newOrderData.rightAxis ? Number(newOrderData.rightAxis) : null,
-                rightAddition: newOrderData.rightEyeEnabled ? newOrderData.rightAddition : "",
-                leftSphere: newOrderData.leftEyeEnabled ? newOrderData.leftSphere : null,
-                leftCylinder: newOrderData.leftEyeEnabled ? newOrderData.leftCylinder : null,
-                leftAxis: newOrderData.leftEyeEnabled && newOrderData.leftAxis ? Number(newOrderData.leftAxis) : null,
-                leftAddition: newOrderData.leftEyeEnabled ? newOrderData.leftAddition : null,
-                rightEye: newOrderData.rightEyeEnabled,
-                leftEye: newOrderData.leftEyeEnabled,
-                sendToWhatsapp: newOrderData.sendToWhatsapp,
-                withFrame: newOrderData.withFrame,
-                withDiscount: newOrderData.withDiscount,
-                discountPourcentage: newOrderData.withDiscount && newOrderData.discountPourcentage ? Number(newOrderData.discountPourcentage) : null,
-                category: {
-                    id: Number(newOrderData.categoryId)
-                }
-            };
 
-            const response = await EssafwaOrderApi.createOrder(payload);
-
-            if (response) {
-                await fetchOrders();
-                await fetchCategories();
-                closeCreateModal();
-                setCreatingOrder(false);
-                setIsSuccessModalOpen(true);
-                resetForm();
-
-                if (response.data && response.data.id) {
-                    try {
-                        await downloadInvoice(response.data.id);
-
-                        if (newOrderData.sendToWhatsapp) {
-                            try {
-                                await EssafwaOrderApi.sendInvoice(response.data.id);
-                            } catch (whatsappError) {
-                                console.error("Failed to send to WhatsApp:", whatsappError);
-                            }
-                        }
-                    } catch (printError) {
-                        console.error("Failed to auto-print invoice:", printError);
-                        // Don't show error to user as order was created successfully
+        const performCreate = async () => {
+            setCreatingOrder(true);
+            try {
+                const payload = {
+                    clientName: newOrderData.clientName ? newOrderData.clientName : "",
+                    clientTel: newOrderData.clientTel ? newOrderData.clientTel : "",
+                    paidAmount: Number(newOrderData.paidAmount),
+                    totalPaidAmount: Number(newOrderData.totalPaidAmount),
+                    rightSphere: newOrderData.rightEyeEnabled ? newOrderData.rightSphere : "",
+                    rightCylinder: newOrderData.rightEyeEnabled ? newOrderData.rightCylinder : "",
+                    rightAxis: newOrderData.rightEyeEnabled && newOrderData.rightAxis ? Number(newOrderData.rightAxis) : null,
+                    rightAddition: newOrderData.rightEyeEnabled ? newOrderData.rightAddition : "",
+                    leftSphere: newOrderData.leftEyeEnabled ? newOrderData.leftSphere : null,
+                    leftCylinder: newOrderData.leftEyeEnabled ? newOrderData.leftCylinder : null,
+                    leftAxis: newOrderData.leftEyeEnabled && newOrderData.leftAxis ? Number(newOrderData.leftAxis) : null,
+                    leftAddition: newOrderData.leftEyeEnabled ? newOrderData.leftAddition : null,
+                    rightEye: newOrderData.rightEyeEnabled,
+                    leftEye: newOrderData.leftEyeEnabled,
+                    sendToWhatsapp: newOrderData.sendToWhatsapp,
+                    withFrame: newOrderData.withFrame,
+                    withDiscount: newOrderData.withDiscount,
+                    discountPourcentage: newOrderData.withDiscount && newOrderData.discountPourcentage ? Number(newOrderData.discountPourcentage) : null,
+                    category: {
+                        id: Number(newOrderData.categoryId)
                     }
+                };
+
+                const response = await EssafwaOrderApi.createOrder(payload);
+
+                if (response) {
+                    await fetchOrders();
+                    await fetchCategories();
+                    closeCreateModal();
+                    setCreatingOrder(false);
+                    setIsSuccessModalOpen(true);
+                    resetForm();
+
+                    if (response.data && response.data.id) {
+                        try {
+                            await downloadInvoice(response.data.id);
+
+                            if (newOrderData.sendToWhatsapp) {
+                                try {
+                                    await EssafwaOrderApi.sendInvoice(response.data.id);
+                                } catch (whatsappError) {
+                                    console.error("Failed to send to WhatsApp:", whatsappError);
+                                    toast.error(t("Order created but failed to send invoice message"));
+                                }
+                            }
+                        } catch (printError) {
+                            console.error("Failed to auto-print invoice:", printError);
+                        }
+                    }
+                } else {
+                    throw new Error('Failed to create order');
                 }
-            } else {
-                throw new Error('Failed to create order');
+            } catch (error) {
+                console.error("Failed to create order:", error);
+                toast.error(t("Failed to create order"));
+            } finally {
+                setCreatingOrder(false);
             }
-        } catch (error) {
-            console.error("Failed to create order:", error);
-            toast.error(t("Failed to create order"));
-        } finally {
-            setCreatingOrder(false);
-        }
+        };
+
+        await checkWhatsappConnection(performCreate);
     };
 
     const downloadInvoice = async (orderId: number) => {
@@ -608,7 +654,7 @@ export default function EssafwaOrders() {
                                             defaultValue={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
-                        <Button onClick={openCreateModal} size="sm" className="md:w-auto w-full">
+                        <Button onClick={handleOpenCreateModal} size="sm" className="md:w-auto w-full">
                             {t("Create New Order")}
                         </Button>
                     </div>
@@ -1878,6 +1924,86 @@ export default function EssafwaOrders() {
                     </div>
                 )}
             </AnimatePresence>
+
+            <Modal
+                isOpen={isWhatsappModalOpen}
+                onClose={() => {
+                    setIsWhatsappModalOpen(false);
+                    setPendingWhatsappAction(null);
+                }}
+                className="max-w-md mx-auto rounded-2xl overflow-hidden shadow-xl bg-white dark:bg-gray-800"
+            >
+                <div className="relative p-6">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setIsWhatsappModalOpen(false);
+                            setPendingWhatsappAction(null);
+                        }}
+                        className="absolute top-4 right-4 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        aria-label={t("Close")}
+                    >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-white text-center mb-2">
+                        {t("Connect WhatsApp")}
+                    </h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 text-center mb-5">
+                        {t("Scan this QR code with your WhatsApp device to connect. After scanning, click \"Check connection\" to continue.")}
+                    </p>
+                    {whatsappQrCode && (
+                        <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl shadow-inner flex justify-center mb-6">
+                            <QRCode value={whatsappQrCode} size={220} />
+                        </div>
+                    )}
+                    <div className={`flex gap-3 justify-end ${isRTL ? "flex-row-reverse" : ""}`}>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setIsWhatsappModalOpen(false);
+                                setPendingWhatsappAction(null);
+                            }}
+                            className="border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300"
+                        >
+                            {t("Cancel")}
+                        </Button>
+                        <Button
+                            onClick={async () => {
+                                try {
+                                    setIsCheckingWhatsappStatus(true);
+                                    const status = await WhatsappApi.getStatus();
+                                    if (status?.data?.connected) {
+                                        setIsWhatsappModalOpen(false);
+                                        const action = pendingWhatsappAction;
+                                        setPendingWhatsappAction(null);
+                                        if (action) {
+                                            await action();
+                                        }
+                                    } else {
+                                        const refresh = await WhatsappApi.getQrCode();
+                                        const refreshed = refresh?.data?.qrCode;
+                                        if (refreshed) {
+                                            setWhatsappQrCode(refreshed);
+                                        }
+                                        toast.error(t("WhatsApp is not connected yet. Please scan the QR code and try again."));
+                                    }
+                                } catch (error) {
+                                    console.error("Failed to verify WhatsApp connection:", error);
+                                    toast.error(t("Failed to verify WhatsApp connection"));
+                                } finally {
+                                    setIsCheckingWhatsappStatus(false);
+                                }
+                            }}
+                            disabled={isCheckingWhatsappStatus}
+                            className="bg-[#E92C80] hover:bg-[#d12570] text-white border-0"
+                        >
+                            {isCheckingWhatsappStatus ? t("Checking...") : t("Check connection")}
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }
