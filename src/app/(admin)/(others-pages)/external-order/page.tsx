@@ -208,9 +208,16 @@ export default function GlassesOrders() {
     const [isCheckingWhatsappStatus, setIsCheckingWhatsappStatus] = useState(false);
     const [pendingWhatsappAction, setPendingWhatsappAction] = useState<(() => Promise<void>) | null>(null);
     const [qrExpirySeconds, setQrExpirySeconds] = useState<number | null>(null);
+    const [isWhatsappSubscriptionExpiredOpen, setIsWhatsappSubscriptionExpiredOpen] = useState(false);
 
     const checkWhatsappConnection = async (onConnected?: () => Promise<void>): Promise<boolean> => {
         try {
+            const paidResponse = await WhatsappApi.getPaid();
+            if (!paidResponse?.data?.paid) {
+                setIsWhatsappSubscriptionExpiredOpen(true);
+                return false;
+            }
+
             const statusResponse = await WhatsappApi.getStatus();
             if (statusResponse?.data?.connected) {
                 if (onConnected) {
@@ -2538,6 +2545,36 @@ export default function GlassesOrders() {
                             className="bg-[#E92C80] hover:bg-[#d12570] text-white border-0"
                         >
                             {isCheckingWhatsappStatus ? t("Checking...") : t("Check connection")}
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
+
+            <Modal
+                isOpen={isWhatsappSubscriptionExpiredOpen}
+                onClose={() => setIsWhatsappSubscriptionExpiredOpen(false)}
+                className="max-w-md mx-auto rounded-2xl overflow-hidden shadow-xl bg-white dark:bg-gray-800"
+            >
+                <div className="relative p-6">
+                    <div className="flex flex-col items-center text-center">
+                        <div className="flex items-center justify-center w-16 h-16 rounded-full bg-yellow-100 dark:bg-yellow-900/30 mb-4">
+                            <svg className="w-9 h-9 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            </svg>
+                        </div>
+                        <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2 font-arabic">
+                            {t("WhatsApp Subscription Ended")}
+                        </h2>
+                        <p className="font-arabic text-gray-600 dark:text-gray-300">
+                            {t("Your WhatsApp subscription has ended. Please pay $37 or contact your system administrator to renew and continue using WhatsApp.")}
+                        </p>
+                    </div>
+                    <div className="mt-6 flex justify-center">
+                        <Button
+                            onClick={() => setIsWhatsappSubscriptionExpiredOpen(false)}
+                            className="bg-[#E92C80] hover:bg-[#d12570] text-white border-0"
+                        >
+                            {t("OK")}
                         </Button>
                     </div>
                 </div>

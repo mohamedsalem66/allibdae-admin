@@ -747,3 +747,12 @@ span.flatpickr-weekday,
     font-size: 16px;
   }
 }
+
+/* Arabic font utility */
+.font-arabic {
+  font-family: var(--font-cairo, 'Cairo', 'Segoe UI', Tahoma, sans-serif);
+  font-size: 1rem;
+  line-height: 1.8;
+  letter-spacing: 0;
+  font-weight: 500;
+}

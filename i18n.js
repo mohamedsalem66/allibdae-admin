@@ -274,7 +274,11 @@ const resources = {
             "Total Amount": "Total Amount",
             "Enter glasses price": "Enter glasses price",
             "Glasses price is required and must be a positive number": "Glasses price is required and must be a positive number",
-            "Glasses price must be greater than 0": "Glasses price must be greater than 0"
+            "Glasses price must be greater than 0": "Glasses price must be greater than 0",
+
+            // WhatsApp subscription expired modal
+            "WhatsApp Subscription Ended": "WhatsApp Subscription Ended",
+            "Your WhatsApp subscription has ended. Please pay $37 or contact your system administrator to renew and continue using WhatsApp.": "Your WhatsApp subscription has ended. Please contact your system administrator to renew and continue using WhatsApp."
 
 
         },
@@ -573,7 +577,11 @@ const resources = {
             "Not specified": "Non spécifié",
             "Draft External Order": "Commande Externe Brouillon",
             "All orders created here are draft orders and not sended": "Toutes les commandes créées ici sont des brouillons et ne sont pas envoyées",
-            "DRAFT": "BROUILLON"
+            "DRAFT": "BROUILLON",
+
+            // WhatsApp subscription expired modal
+            "WhatsApp Subscription Ended": "Abonnement WhatsApp expiré",
+            "Your WhatsApp subscription has ended. Please pay $37 or contact your system administrator to renew and continue using WhatsApp.": "Votre abonnement WhatsApp est terminé. Veuillez contacter votre administrateur système pour le renouveler et continuer à utiliser WhatsApp."
 
         },
     },
@@ -873,8 +881,11 @@ const resources = {
             "Not specified": "غير محدد",
             "Draft External Order": "طلب خارجي مسودة",
             "All orders created here are draft orders and not sended": "جميع الطلبات التي تم إنشاؤها هنا هي طلبات مسودة ولا يتم إرسالها",
-            "DRAFT": "مسودة"
+            "DRAFT": "مسودة",
 
+            // WhatsApp subscription expired modal
+            "WhatsApp Subscription Ended": "انتهى اشتراك واتساب",
+            "Your WhatsApp subscription has ended. Please pay $37 or contact your system administrator to renew and continue using WhatsApp.": "لقد انتهى اشتراكك في واتساب. يرجى التواصل مع مسؤول النظام لتجديده ومواصلة استخدام واتساب."
 
 
         },

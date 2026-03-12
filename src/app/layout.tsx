@@ -1,6 +1,6 @@
 "use client";
 
-import { Outfit } from "next/font/google";
+import { Outfit, Cairo } from "next/font/google";
 import "./globals.css";
 import "../../i18n";
 import { ThemeProvider } from "@/context/ThemeContext";
@@ -11,6 +11,12 @@ import { useTranslation } from "react-i18next";
 
 const outfit = Outfit({
     subsets: ["latin"],
+});
+
+const cairo = Cairo({
+    subsets: ["arabic", "latin"],
+    variable: "--font-cairo",
+    display: "swap",
 });
 
 export default function RootLayout({
@@ -78,7 +84,7 @@ export default function RootLayout({
 
     if (isLoading) {
         return (
-            <html lang={i18n.language} dir={getDirection()}>
+            <html lang={i18n.language} dir={getDirection()} className={cairo.variable}>
             <body className={`${outfit.className} dark:bg-gray-900`}>
             <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
                 <div
@@ -91,7 +97,7 @@ export default function RootLayout({
     }
 
     return (
-        <html lang={i18n.language} dir={getDirection()}>
+        <html lang={i18n.language} dir={getDirection()} className={cairo.variable}>
         <body className={`${outfit.className} dark:bg-gray-900`}>
         <ThemeProvider>
             {children}
